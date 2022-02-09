@@ -1,0 +1,50 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+unless Vagrant.has_plugin?("vagrant-reload")
+  system('vagrant plugin install vagrant-reload')
+  exit system('vagrant', *ARGV)
+end
+
+Vagrant.configure("2") do |config|
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder "SSH/", "/vagrant/ansible_ssh", type: "rsync"
+  config.vm.synced_folder "SSH/", "/vagrant/root_ssh", type: "rsync"
+
+
+  config.vm.define "dev.my.com" do |dev|
+    dev.vm.box = "centos/stream8"
+    dev.vm.hostname = "dev.my.com"
+
+    dev.vm.provider "virtualbox" do |v|
+      v.memory = 4096
+      v.cpus = 2
+      v.customize ["modifyvm", :id, "--audio", "none"]
+    end
+    dev.vm.provider :libvirt do |lv|
+      lv.memory = 4096
+      lv.cpus = 2
+      lv.qemu_use_session = false
+    end
+
+    dev.ssh.username = "vagrant"
+    dev.ssh.insert_key = "true"
+
+    dev.vm.network "private_network", ip: "172.10.149.26"
+
+    dev.vm.provision "shell", inline: <<-SHELL
+      sudo adduser ansible
+      sudo echo ansible | passwd ansible --stdin
+      sudo echo root | passwd root --stdin
+      sudo mkdir -p /home/ansible/.ssh/ && cp -rf /vagrant/ansible_ssh/authorized_keys /home/ansible/.ssh/
+      sudo chown -R ansible:ansible /home/ansible/.ssh
+      sudo chmod -R u=rw,g-rwx,o-rwx /home/ansible/.ssh/authorized_keys
+      sudo mkdir -p /root/.ssh && cp -rf /vagrant/root_ssh/authorized_keys /root/.ssh/
+      sudo chown -R root:root /root/.ssh
+      sudo chmod -R u=rw,g-rwx,o-rwx /root/.ssh/authorized_keys
+      sudo echo "ansible ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+      sudo dnf install -y python3
+    SHELL
+  end
+
+end
