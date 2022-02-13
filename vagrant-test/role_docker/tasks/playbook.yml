@@ -1,0 +1,37 @@
+- name: install docker
+  gather_facts: no
+  hosts: ROCKET
+  vars:
+    user_name: ansible 
+  tasks:
+    - name: install yum utils
+      package:
+        name: "{{ item }}"
+        state: latest
+      become: yes
+      with_items:
+        - yum-utils
+        - lvm2
+        - device-mapper-persistent-data
+
+    - name: Add Docker repo
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docer-ce.repo
+      become: yes
+
+    - name: Inntall Docker
+      package:
+       name: docker-ce
+       state: latest
+      become: yes
+
+    - name: start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+
+
+        
